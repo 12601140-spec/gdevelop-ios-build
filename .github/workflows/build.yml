@@ -21,8 +21,15 @@ jobs:
 
       - name: Unzip Project Files
         run: |
-          unzip project.zip -d ./
+          unzip project.zip -d ./unzipped_temp
           rm project.zip
+          # フォルダごとZIP化されている場合、中身をカレントディレクトリに引き出す
+          if [ -f ./unzipped_temp/config.xml ]; then
+            mv ./unzipped_temp/* ./
+          else
+            mv ./unzipped_temp/*/* ./
+          fi
+          rm -rf ./unzipped_temp
 
       - name: Create Cordova Project Framework
         run: |
@@ -42,7 +49,6 @@ jobs:
       - name: Bypass Apple Code Signing
         run: |
           cd myApp/platforms/ios
-          # Xcodeプロジェクトの設定ファイルから署名要求を強制削除する
           find . -name "project.pbxproj" -exec sed -i '' 's/CODE_SIGNING_ALLOWED = YES/CODE_SIGNING_ALLOWED = NO/g' {} +
           find . -name "project.pbxproj" -exec sed -i '' 's/CODE_SIGNING_REQUIRED = YES/CODE_SIGNING_REQUIRED = NO/g' {} +
           find . -name "project.pbxproj" -exec sed -i '' '/DEVELOPMENT_TEAM/d' {} +
@@ -51,13 +57,11 @@ jobs:
       - name: Build iOS Xcode Project (No Signing)
         run: |
           cd myApp
-          # 署名なしでプロジェクトをアーカイブ化する
           xcodebuild -workspace MyApp.xcworkspace -scheme MyApp -configuration Release -sdk iphoneos -archivePath MyApp.xcarchive archive CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="Don't Code Sign"
 
       - name: Package Payload into IPA
         run: |
           cd myApp
-          # アーカイブからアプリ本体（.app）を抽出してIPAにパッケージングする
           mkdir Payload
           cp -R MyApp.xcarchive/Products/Applications/MyApp.app Payload/
           zip -r ../game.ipa Payload
