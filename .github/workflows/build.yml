@@ -39,27 +39,28 @@ jobs:
           rm -rf myApp/www/myApp
           rm -rf myApp/www/.github
 
+      - name: Bypass Apple Code Signing
+        run: |
+          cd myApp/platforms/ios
+          # Xcodeプロジェクトの設定ファイルから署名要求を強制削除する
+          find . -name "project.pbxproj" -exec sed -i '' 's/CODE_SIGNING_ALLOWED = YES/CODE_SIGNING_ALLOWED = NO/g' {} +
+          find . -name "project.pbxproj" -exec sed -i '' 's/CODE_SIGNING_REQUIRED = YES/CODE_SIGNING_REQUIRED = NO/g' {} +
+          find . -name "project.pbxproj" -exec sed -i '' '/DEVELOPMENT_TEAM/d' {} +
+          find . -name "project.pbxproj" -exec sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer"/CODE_SIGN_IDENTITY = "Don\x27t Code Sign"/g' {} +
+
       - name: Build iOS Xcode Project (No Signing)
         run: |
           cd myApp
-          cat <<EOF > build.json
-          {
-            "ios": {
-              "release": {
-                "codeSignIdentity": "Don't Code Sign",
-                "packageType": "adhoc"
-              }
-            }
-          }
-          EOF
-          cordova build ios --device --release --buildConfig=build.json -- CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+          # 署名なしでプロジェクトをアーカイブ化する
+          xcodebuild -workspace MyApp.xcworkspace -scheme MyApp -configuration Release -sdk iphoneos -archivePath MyApp.xcarchive archive CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="Don't Code Sign"
 
       - name: Package Payload into IPA
         run: |
-          cd myApp/platforms/ios/build/device
+          cd myApp
+          # アーカイブからアプリ本体（.app）を抽出してIPAにパッケージングする
           mkdir Payload
-          cp -R MyApp.app Payload/
-          zip -r ../../../../../game.ipa Payload
+          cp -R MyApp.xcarchive/Products/Applications/MyApp.app Payload/
+          zip -r ../game.ipa Payload
           
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
