@@ -1,0 +1,52 @@
+name: Build iOS IPA
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Cordova
+        run: npm install -g cordova
+
+      - name: Create Cordova Project Framework
+        run: |
+          cordova create myApp com.example.myapp MyApp
+          cd myApp
+          cordova platform add ios
+
+      - name: Copy GDevelop Web Files
+        run: |
+          rm -rf myApp/www/*
+          cp -R ./* myApp/www/
+          # 不要なディレクトリの混入を防ぐ
+          rm -rf myApp/www/myApp
+          rm -rf myApp/www/.github
+
+      - name: Build iOS Xcode Project
+        run: |
+          cd myApp
+          cordova build ios --device --release
+
+      - name: Package Payload into IPA
+        run: |
+          cd myApp/platforms/ios/build/device
+          mkdir Payload
+          cp -R MyApp.app Payload/
+          zip -r ../../../../../game.ipa Payload
+          
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-game-ipa
+          path: game.ipa
