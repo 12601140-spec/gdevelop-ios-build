@@ -19,6 +19,11 @@ jobs:
       - name: Install Cordova
         run: npm install -g cordova
 
+      - name: Unzip Project Files
+        run: |
+          unzip project.zip -d ./
+          rm project.zip
+
       - name: Create Cordova Project Framework
         run: |
           cordova create myApp com.example.myapp MyApp
@@ -28,15 +33,26 @@ jobs:
       - name: Copy GDevelop Web Files
         run: |
           rm -rf myApp/www/*
-          cp -R ./* myApp/www/
-          # 不要なディレクトリの混入を防ぐ
+          cp -R ./www/* myApp/www/
+          cp config.xml myApp/
+          cp package.json myApp/
           rm -rf myApp/www/myApp
           rm -rf myApp/www/.github
 
-      - name: Build iOS Xcode Project
+      - name: Build iOS Xcode Project (No Signing)
         run: |
           cd myApp
-          cordova build ios --device --release
+          cat <<EOF > build.json
+          {
+            "ios": {
+              "release": {
+                "codeSignIdentity": "Don't Code Sign",
+                "packageType": "adhoc"
+              }
+            }
+          }
+          EOF
+          cordova build ios --device --release --buildConfig=build.json -- CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
 
       - name: Package Payload into IPA
         run: |
